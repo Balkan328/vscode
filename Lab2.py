@@ -1,56 +1,36 @@
+from flask import Flask, render_template, request, jsonify
+
+#GPIO
 import RPi.GPIO as GPIO
-import time
-import os
-from flask import Flask, request, jsonify
-
-# GPIO Configuration
+GPIO_PIN_LED = 27
+GPIO_PIN_BUTTON = 17
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(17, GPIO.OUT)  # LED Pin
-GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # Button with pull-up resistor
+GPIO.setup(GPIO_PIN_LED, GPIO.OUT)
+GPIO.setup(GPIO_PIN_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-# Flask App Initialization
-app = Flask(__name__, static_folder='static')
+#Flask
+app = Flask(__name__)
 
-# Variable to store LED state
-led_state = False
+#Flask page d'accueil
+@app.route('/')
+def index():
+    return render_template('index.html')
+ 
+ #Flask allumer eteindre DEL
+@app.route('/del', methods=['POST'])
+def allumer_eteindre_del():
+        isLed1On = request.json['isLed1On']
+        if isLed1On:
+            GPIO.output(GPIO_PIN_LED, GPIO.HIGH)
+        else:
+            GPIO.output(GPIO_PIN_LED, GPIO.LOW)
+        return jsonify({'message': 'LED state updated successfully'})
 
-@app.route('/get', methods=['GET'])
-def get_led_status():
-    """Returns the current state of the LED and the button"""
-    global led_state
-    status = "on" if led_state else "off"
-    
-    # Read button state (LOW = Pressed, HIGH = Not Pressed)
-    button_state = "on" if GPIO.input(27) == GPIO.LOW else "off"
-
-    return jsonify({"led": status, "button": button_state})
-
-@app.route('/post', methods=['POST'])
-def post_led_control():
-    """Controls the LED based on POST request data"""
-    global led_state
-    data = request.get_json()
-
-    if not data or "led" not in data:
-        return jsonify({"error": "Invalid JSON data"}), 400
-
-    if data["led"] == "true":
-        GPIO.output(17, GPIO.HIGH)  # Turn LED ON
-        led_state = True
-        return jsonify({"message": "LED turned ON"})
-
-    elif data["led"] == "false":
-        GPIO.output(17, GPIO.LOW)  # Turn LED OFF
-        led_state = False
-        return jsonify({"message": "LED turned OFF"})
-
-    else:
-        return jsonify({"error": "Invalid value for 'led', use 'true' or 'false'"}), 400
+#Flask lire bouton
+@app.route('/bouton', methods=['GET'])
+def lire_bouton():
+    isButton1On = True if GPIO.input(GPIO_PIN_BUTTON) else False
+    return jsonify({'isButton1On': isButton1On})
 
 if __name__ == '__main__':
-    try:
-        app.run(host='0.0.0.0', port=5000)  # Accessible on network
-    except KeyboardInterrupt:
-        print("\nShutting down server...")
-    finally:
-        GPIO.cleanup()  # Release GPIO resources
+    app.run(host='0.0.0.0')
